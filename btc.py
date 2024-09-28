@@ -7,14 +7,11 @@ from sklearn.metrics import mean_squared_error
 import datetime
 from sklearn.preprocessing import MinMaxScaler
 import logging
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import pyfiglet
 
-# Telegram Bot Setup
+# Telegram Bot API key
 API_KEY = '7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY'
-
-# States for conversation
-ENTER_DAYS, ASK_AGAIN = range(2)
 
 # Fetch historical data from CoinGecko API
 def fetch_historical_data():
@@ -48,16 +45,15 @@ def split_message(message, max_length=4000):
 # Start command handler
 def start(update, context):
     update.message.reply_text('Welcome! I am a Bitcoin price prediction bot. Enter the number of days you want predictions for:')
-    return ENTER_DAYS
-
+    
 # Function to handle user input for number of prediction days
-def enter_days(update, context):
+def handle_query(update, context):
     try:
         next_days = int(update.message.text)
     except ValueError:
         update.message.reply_text('Please enter a valid number.')
-        return ENTER_DAYS
-    
+        return
+
     update.message.reply_text(f'Fetching predictions for the next {next_days} days...')
 
     # Fetch historical data
@@ -112,25 +108,9 @@ def enter_days(update, context):
     for message in split_message(predictions_message):
         update.message.reply_text(message)
 
-    # Ask user if they want to make another prediction
-    update.message.reply_text('Do you want to predict again? Type "yes" or "no".')
-    return ASK_AGAIN
-
-# Function to handle user decision to continue or stop
-def ask_again(update, context):
-    response = update.message.text.lower()
-
-    if response == 'yes':
-        update.message.reply_text('Great! Enter the number of days for the next prediction:')
-        return ENTER_DAYS
-    else:
-        update.message.reply_text('Goodbye!')
-        return ConversationHandler.END
-
-# Function to handle cancellation
-def cancel(update, context):
-    update.message.reply_text('Prediction process cancelled.')
-    return ConversationHandler.END
+# Function to handle unknown commands
+def unknown(update, context):
+    update.message.reply_text("Sorry, I didn't understand that command.")
 
 # Main function to set up the bot
 def main():
@@ -143,17 +123,14 @@ def main():
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
 
-    # Add conversation handler with states
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            ENTER_DAYS: [MessageHandler(Filters.text & ~Filters.command, enter_days)],
-            ASK_AGAIN: [MessageHandler(Filters.text & ~Filters.command, ask_again)],
-        },
-        fallbacks=[CommandHandler('cancel', cancel)]
-    )
+    # Add handler for /start command
+    dp.add_handler(CommandHandler('start', start))
 
-    dp.add_handler(conv_handler)
+    # Add handler for user queries
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_query))
+
+    # Add handler for unknown commands
+    dp.add_handler(MessageHandler(Filters.command, unknown))
 
     # Start the bot
     updater.start_polling()
