@@ -37,4 +37,5 @@ This project fetches historical Bitcoin (BTC) data from CoinGecko, predicts the 
 2. The script will fetch historical BTC data, predict the price, and send the prediction to the Telegram bot.
 
 Author~ Black
+
 Contact; @Vinjak
