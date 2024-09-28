@@ -102,7 +102,7 @@ def handle_query(update, context):
         last_data = np.append(last_data[:, 1:], next_prediction).reshape(1, -1)
 
     # Send the predictions back to the user in chunks if needed
-    figlet_text = pyfiglet.figlet_format("BLACK")
+    figlet_text = pyfiglet.figlet_format("black")
     update.message.reply_text(figlet_text)
 
     for message in split_message(predictions_message):
