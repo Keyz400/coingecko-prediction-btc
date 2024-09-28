@@ -43,7 +43,7 @@ def create_features_and_labels(prices, window_size):
 
 # Start command handler
 def start(update, context):
-    update.message.reply_text('Welcome! I am a Bitcoin price prediction bot. Enter the number of days you want predictions for:')
+    update.message.reply_text('Welcome! 😚 I am a Bitcoin price prediction bot. Enter the number of days you want predictions for: Eg:- 3,5,10')
     return ENTER_DAYS
 
 # Function to handle user input for number of prediction days
@@ -51,10 +51,10 @@ def enter_days(update, context):
     try:
         next_days = int(update.message.text)
     except ValueError:
-        update.message.reply_text('Please enter a valid number.')
+        update.message.reply_text('Please enter a valid number 🥺')
         return ENTER_DAYS
     
-    update.message.reply_text(f'Fetching predictions for the next {next_days} days...')
+    update.message.reply_text(f'Fetching predictions for the next {next_days} days...⚡')
 
     # Fetch historical data
     timestamps, prices = fetch_historical_data()
@@ -102,7 +102,7 @@ def enter_days(update, context):
         last_data = np.append(last_data[:, 1:], next_prediction).reshape(1, -1)
 
     # Send the predictions back to the user
-    figlet_text = pyfiglet.figlet_format("Drickworld")
+    figlet_text = pyfiglet.figlet_format("Black")
     update.message.reply_text(figlet_text)
     update.message.reply_text(predictions_message)
 
