@@ -30,7 +30,7 @@ def create_features_and_labels(prices, window_size):
 
 # Start command handler
 def start(update, context):
-    update.message.reply_text('Welcome!😚 Enter the number of days for Bitcoin price predictions (e.g., 3, 5, 10).')
+    update.message.reply_text('Welcome!😚 Enter the number of days for Bitcoin price predictions (e.g., 3, 5, 10). Max 100')
 
 # Handle user input and prediction
 def handle_query(update, context):
