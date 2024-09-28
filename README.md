@@ -25,7 +25,7 @@ This project fetches historical Bitcoin (BTC) data from CoinGecko, predicts the 
 *Setup*
 
 1. Clone the repository: `git clone`
-2. Install dependencies: `pip install -r requirements.txt`
+2. Install dependencies: `pip3 install -r requirements.txt`
 3. Edit btc.py file with your telegram bot token
   TELEGRAM_BOT_TOKEN=your_bot_token
 5. Now, run it `python3 btc.py`
