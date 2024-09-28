@@ -14,7 +14,7 @@ import pyfiglet
 API_KEY = '7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY'
 
 # States for conversation
-ENTER_DAYS = range(1)
+ENTER_DAYS, ASK_AGAIN = range(2)
 
 # Fetch historical data from CoinGecko API
 def fetch_historical_data():
@@ -41,9 +41,13 @@ def create_features_and_labels(prices, window_size):
     y = np.array(y)
     return X, y
 
+# Helper function to split long messages
+def split_message(message, max_length=4000):
+    return [message[i:i + max_length] for i in range(0, len(message), max_length)]
+
 # Start command handler
 def start(update, context):
-    update.message.reply_text('Welcome! 😚 I am a Bitcoin price prediction bot. Enter the number of days you want predictions for: Eg:- 3,5,10')
+    update.message.reply_text('Welcome! I am a Bitcoin price prediction bot. Enter the number of days you want predictions for:')
     return ENTER_DAYS
 
 # Function to handle user input for number of prediction days
@@ -51,10 +55,10 @@ def enter_days(update, context):
     try:
         next_days = int(update.message.text)
     except ValueError:
-        update.message.reply_text('Please enter a valid number 🥺')
+        update.message.reply_text('Please enter a valid number.')
         return ENTER_DAYS
     
-    update.message.reply_text(f'Fetching predictions for the next {next_days} days...⚡')
+    update.message.reply_text(f'Fetching predictions for the next {next_days} days...')
 
     # Fetch historical data
     timestamps, prices = fetch_historical_data()
@@ -101,12 +105,27 @@ def enter_days(update, context):
         # Update last_data by removing the oldest and adding the newest prediction
         last_data = np.append(last_data[:, 1:], next_prediction).reshape(1, -1)
 
-    # Send the predictions back to the user
-    figlet_text = pyfiglet.figlet_format("Black")
+    # Send the predictions back to the user in chunks if needed
+    figlet_text = pyfiglet.figlet_format("Drickworld")
     update.message.reply_text(figlet_text)
-    update.message.reply_text(predictions_message)
 
-    return ConversationHandler.END
+    for message in split_message(predictions_message):
+        update.message.reply_text(message)
+
+    # Ask user if they want to make another prediction
+    update.message.reply_text('Do you want to predict again? Type "yes" or "no".')
+    return ASK_AGAIN
+
+# Function to handle user decision to continue or stop
+def ask_again(update, context):
+    response = update.message.text.lower()
+
+    if response == 'yes':
+        update.message.reply_text('Great! Enter the number of days for the next prediction:')
+        return ENTER_DAYS
+    else:
+        update.message.reply_text('Goodbye!')
+        return ConversationHandler.END
 
 # Function to handle cancellation
 def cancel(update, context):
@@ -129,6 +148,7 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             ENTER_DAYS: [MessageHandler(Filters.text & ~Filters.command, enter_days)],
+            ASK_AGAIN: [MessageHandler(Filters.text & ~Filters.command, ask_again)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
