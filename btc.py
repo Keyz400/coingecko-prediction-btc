@@ -11,7 +11,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Conve
 import pyfiglet
 
 # Telegram Bot Setup
-API_KEY = 'YOUR_TELEGRAM_BOT_TOKEN'
+API_KEY = '7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY'
 
 # States for conversation
 ENTER_DAYS = range(1)
