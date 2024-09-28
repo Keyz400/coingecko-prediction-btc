@@ -8,7 +8,6 @@ import datetime
 from sklearn.preprocessing import MinMaxScaler
 import logging
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import pyfiglet
 
 # Telegram Bot API key
 API_KEY = '7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY'
@@ -45,7 +44,7 @@ def split_message(message, max_length=4000):
 # Start command handler
 def start(update, context):
     update.message.reply_text('Welcome!😚 I am a Bitcoin price prediction bot. Enter the number of days you want predictions. Eg 3,5,10, 50')
-    
+
 # Function to handle user input for number of prediction days
 def handle_query(update, context):
     try:
@@ -102,9 +101,6 @@ def handle_query(update, context):
         last_data = np.append(last_data[:, 1:], next_prediction).reshape(1, -1)
 
     # Send the predictions back to the user in chunks if needed
-    figlet_text = pyfiglet.figlet_format("black")
-    update.message.reply_text(figlet_text)
-
     for message in split_message(predictions_message):
         update.message.reply_text(message)
 
