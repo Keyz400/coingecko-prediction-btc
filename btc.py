@@ -44,17 +44,17 @@ def split_message(message, max_length=4000):
 
 # Start command handler
 def start(update, context):
-    update.message.reply_text('Welcome! I am a Bitcoin price prediction bot. Enter the number of days you want predictions for:')
+    update.message.reply_text('Welcome!😚 I am a Bitcoin price prediction bot. Enter the number of days you want predictions. Eg 3,5,10, 50')
     
 # Function to handle user input for number of prediction days
 def handle_query(update, context):
     try:
         next_days = int(update.message.text)
     except ValueError:
-        update.message.reply_text('Please enter a valid number.')
+        update.message.reply_text('Please enter a valid number 🥺')
         return
 
-    update.message.reply_text(f'Fetching predictions for the next {next_days} days...')
+    update.message.reply_text(f'Fetching predictions for the next {next_days} days...⚡')
 
     # Fetch historical data
     timestamps, prices = fetch_historical_data()
@@ -102,7 +102,7 @@ def handle_query(update, context):
         last_data = np.append(last_data[:, 1:], next_prediction).reshape(1, -1)
 
     # Send the predictions back to the user in chunks if needed
-    figlet_text = pyfiglet.figlet_format("Drickworld")
+    figlet_text = pyfiglet.figlet_format("BLACK")
     update.message.reply_text(figlet_text)
 
     for message in split_message(predictions_message):
@@ -110,7 +110,7 @@ def handle_query(update, context):
 
 # Function to handle unknown commands
 def unknown(update, context):
-    update.message.reply_text("Sorry, I didn't understand that command.")
+    update.message.reply_text("Sorry, I didn't understand that command 😔")
 
 # Main function to set up the bot
 def main():
