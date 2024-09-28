@@ -30,17 +30,17 @@ def create_features_and_labels(prices, window_size):
 
 # Start command handler
 def start(update, context):
-    update.message.reply_text('Welcome! Enter the number of days for Bitcoin price predictions (e.g., 3, 5, 10).')
+    update.message.reply_text('Welcome!😚 Enter the number of days for Bitcoin price predictions (e.g., 3, 5, 10).')
 
 # Handle user input and prediction
 def handle_query(update, context):
     try:
         next_days = int(update.message.text)
     except ValueError:
-        update.message.reply_text('Please enter a valid number.')
+        update.message.reply_text('Please enter a valid number 🥺')
         return
 
-    update.message.reply_text(f'Predicting for the next {next_days} days...')
+    update.message.reply_text(f'Predicting for the next {next_days} days...⚡')
 
     # Fetch and process data
     timestamps, prices = fetch_historical_data()
@@ -75,7 +75,7 @@ def handle_query(update, context):
 
 # Handle unknown commands
 def unknown(update, context):
-    update.message.reply_text("Sorry, I didn't understand that command.")
+    update.message.reply_text("Sorry, I didn't understand that command 🤔")
 
 # Main function to set up the bot
 def main():
