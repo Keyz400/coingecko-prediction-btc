@@ -1,42 +1,42 @@
 import os
-import logging
 import requests
+import time
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
 # Configurations
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY")  # Telegram bot token
-USER_CHAT_ID = os.getenv("USER_CHAT_ID", "-1001824360922")  # Chat ID to send notifications to
+TELEGRAM_BOT_TOKEN = os.getenv("7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY")  # Your Telegram bot token
+BTC_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
 
-# Logging Configuration
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+previous_price = None
 
-# Function to fetch the current price of BTC
-def fetch_btc_price():
-    response = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd")
+def get_btc_price():
+    response = requests.get(BTC_URL)
     data = response.json()
     return data['bitcoin']['usd']
 
-# Notify about current price
-def notify_price_change(context: CallbackContext):
-    current_price = fetch_btc_price()
-    logger.info(f"Current BTC price: {current_price}")
+def notify_price_drop(context: CallbackContext):
+    global previous_price
+    current_price = get_btc_price()
+    
+    if previous_price is None:
+        previous_price = current_price
+        return
+    
+    # Calculate the drop percentage
+    drop_percentage = ((previous_price - current_price) / previous_price) * 100
+    
+    if drop_percentage >= 0.2:
+        context.bot.send_message(chat_id=context.job.context, text=f"BTC price dropped to ${current_price:.2f} ({drop_percentage:.2f}% decrease).")
+    
+    previous_price = current_price  # Update the previous price
 
-    # Send message to the specified chat ID
-    context.bot.send_message(chat_id=USER_CHAT_ID, text=f"Current BTC price: ${current_price}")
-
-# Main function to start the bot
 def main():
-    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True)
+    updater = Updater(TELEGRAM_BOT_TOKEN)
     job_queue = updater.job_queue
-
-    # Schedule a job to send price updates every minute
-    job_queue.run_repeating(notify_price_change, interval=60, first=0)
-
+    job_queue.run_repeating(notify_price_drop, interval=60, first=0, context=updater.message.chat_id)  # Check every 1 minute
     updater.start_polling()
-    logger.info("Bot started. Polling...")
     updater.idle()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
