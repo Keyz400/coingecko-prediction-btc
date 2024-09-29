@@ -21,6 +21,8 @@ SUPPORTED_COINS = {
     'binance coin': 'binancecoin',
     'toncoin': 'toncoin',
     'maker': 'maker'
+    'dogs' : 'dogs'
+    'hamster : 'hamster'
 }
 
 # Fetch historical data from CoinGecko API for the selected coin
