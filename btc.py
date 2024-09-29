@@ -8,7 +8,7 @@ from telegram.ext import Updater, CommandHandler, CallbackContext
 # Configurations
 TELEGRAM_BOT_TOKEN = "7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY"  # Your Telegram bot token
 CHAT_ID = "-1001824360922"  # Replace with your Telegram channel ID or username
-BTC_THRESHOLD = 0.2  # Percentage threshold for BTC drop
+BTC_THRESHOLD = 0.02  # Percentage threshold for BTC drop
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
