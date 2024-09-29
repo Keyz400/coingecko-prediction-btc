@@ -10,24 +10,23 @@ import logging
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from telegram import InputFile
 import io
+import json
 
 # Telegram Bot API key
 API_KEY = '7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY'
+ADMIN_ID = 1318663278  # Replace with the actual Telegram ID of the admin
 
-# Supported coins and their CoinGecko IDs
-SUPPORTED_COINS = {
-    'BTC': 'bitcoin',
-    'ETH': 'ethereum',
-    'BNB': 'binancecoin',
-    'TON': 'toncoin',
-    'MKR': 'maker',
-    'ADA': 'cardano',
-    'DOGE': 'dogecoin',
-    'SOL': 'solana',
-    'DOT': 'polkadot',
-    'LTC': 'litecoin',
-    'XRP': 'ripple'
-}
+# Supported coins (initial coins loaded from a JSON file)
+COINS_FILE = 'coins.json'
+
+def load_coins():
+    try:
+        with open(COINS_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+SUPPORTED_COINS = load_coins()
 
 # Fetch historical data from CoinGecko API for the selected coin
 def fetch_historical_data(coin_id):
@@ -38,6 +37,14 @@ def fetch_historical_data(coin_id):
     prices = [price for _, price in data['prices']]
     timestamps = [timestamp for timestamp, _ in data['prices']]
     return timestamps, prices
+
+# Fetch current price of a coin
+def fetch_current_price(coin_id):
+    url = f'https://api.coingecko.com/api/v3/simple/price'
+    params = {'ids': coin_id, 'vs_currencies': 'usd'}
+    response = requests.get(url, params=params)
+    data = response.json()
+    return data.get(coin_id, {}).get('usd', None)
 
 # Create features and labels for training
 def create_features_and_labels(prices, window_size):
@@ -63,12 +70,13 @@ def help_command(update, context):
 # Generate and send plot image
 def send_prediction_image(dates, predictions, update, context, coin):
     plt.figure(figsize=(10, 6))
-    plt.plot(dates, predictions, marker='o', linestyle='-', color='b')
+    plt.plot(dates, predictions, marker='o', linestyle='-', color='b', label=f'{coin} Predictions')
     plt.fill_between(dates, predictions, color='skyblue', alpha=0.3)
     plt.xlabel('Date')
     plt.ylabel(f'Price (USD)')
     plt.title(f'{coin} Price Predictions')
     plt.xticks(rotation=45)
+    plt.legend()
     plt.tight_layout()
     plt.grid(True)
 
@@ -145,21 +153,124 @@ def handle_query(update, context):
     # Send prediction image
     send_prediction_image(predicted_dates, predicted_prices, update, context, coin)
 
-# Handle unknown commands
+# Fetch and send current price of a coin
+def current_price(update, context):
+    if len(context.args) != 1:
+        update.message.reply_text("Please provide a valid coin symbol. Example: /price BTC")
+        return
+
+    coin = context.args[0].upper()
+    if coin not in SUPPORTED_COINS:
+        update.message.reply_text(f"I don't support {coin}. Use /help to see the list of supported coins.")
+        return
+
+    coin_id = SUPPORTED_COINS[coin]
+    price = fetch_current_price(coin_id)
+    if price:
+        update.message.reply_text(f'The current price of {coin} is ${price} USD.')
+    else:
+        update.message.reply_text(f'Failed to fetch the current price of {coin}.')
+
+# Admin command to add a new coin
+def add_coin(update, context):
+    if update.message.from_user.id != ADMIN_ID:
+        update.message.reply_text('Only the admin can add new coins.')
+        return
+
+    if len(context.args) != 2:
+        update.message.reply_text('Usage: /addcoin <symbol> <coingecko_id>. Example: /addcoin LINK chainlink')
+        return
+
+    coin_symbol, coin_id = context.args[0].upper(), context.args[1]
+    SUPPORTED_COINS[coin_symbol] = coin_id
+    with open(COINS_FILE, 'w') as f:
+        json.dump(SUPPORTED_COINS, f)
+    update.message.reply_text(f'Added {coin_symbol} to the supported coins list.')
+
+# Admin command to remove a coin
+def remove_coin(update, context):
+    if update.message.from_user.id != ADMIN_ID:
+        update.message.reply_text('Only the admin can remove coins.')
+        return
+
+    if len(context.args) != 1:
+        update.message.reply_text('Usage: /removecoin <symbol>. Example: /removecoin BTC')
+        return
+
+    coin_symbol = context.args[0].upper()
+    if coin_symbol in SUPPORTED_COINS:
+        del SUPPORTED_COINS[coin_symbol]
+        with open(COINS_FILE, 'w') as f:
+            json.dump(SUPPORTED_COINS, f)
+        update.message.reply_text(f'Removed {coin_symbol} from the supported coins list.')
+    else:
+        update.message.reply_text(f'{coin_symbol} is not in the supported coins list.')
+
+# Admin command to broadcast a message to all users
+def broadcast(update, context):
+    if update.message.from_user.id != ADMIN_ID:
+        update.message.reply_text('Only the admin can broadcast messages.')
+        return
+
+    if not context.args:
+        update.message.reply_text('Usage: /broadcast <message>. Example: /broadcast Hello everyone!')
+        return
+
+    broadcast_message = ' '.join(context.args)
+
+    # Fetch all chat_ids to broadcast the message
+    # This should ideally be fetched from a database where all users are stored.
+    # For this implementation, we assume we have a list of users.
+    # You need to maintain chat IDs when users interact with the bot.
+    users = [ADMIN_ID]  # Add actual user chat IDs here in a real implementation
+
+    for user_id in users:
+        try:
+            context.bot.send_message(chat_id=user_id, text=broadcast_message)
+        except Exception as e:
+            logging.error(f"Failed to send message to {user_id}: {e}")
+
+# Function to handle unknown commands
 def unknown(update, context):
-    update.message.reply_text("Sorry, I didn't understand that command.")
+    update.message.reply_text("Sorry, I didn't understand that command. Use /help to see the available commands.")
 
 # Main function to set up the bot
 def main():
+    # Set up logging
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+    # Create the Updater and pass it your bot's token
     updater = Updater(API_KEY, use_context=True)
+
+    # Get the dispatcher to register handlers
     dp = updater.dispatcher
 
+    # Add handler for /start command
     dp.add_handler(CommandHandler('start', start))
+
+    # Add handler for /help command
     dp.add_handler(CommandHandler('help', help_command))
+
+    # Add handler for price fetching
+    dp.add_handler(CommandHandler('price', current_price))
+
+    # Admin commands for adding/removing coins
+    dp.add_handler(CommandHandler('addcoin', add_coin))
+    dp.add_handler(CommandHandler('removecoin', remove_coin))
+    
+    # Admin broadcast command
+    dp.add_handler(CommandHandler('broadcast', broadcast))
+
+    # Handle user predictions query
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_query))
+
+    # Add handler for unknown commands
     dp.add_handler(MessageHandler(Filters.command, unknown))
 
+    # Start the bot
     updater.start_polling()
+
+    # Run the bot until Ctrl-C is pressed or the process receives SIGINT, SIGTERM or SIGABRT
     updater.idle()
 
 if __name__ == '__main__':
