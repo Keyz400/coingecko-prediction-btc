@@ -16,13 +16,17 @@ API_KEY = '7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY'
 
 # Supported coins and their CoinGecko IDs
 SUPPORTED_COINS = {
-    'bitcoin': 'bitcoin',
-    'ethereum': 'ethereum',
-    'binance coin': 'binancecoin',
-    'toncoin': 'toncoin',
-    'maker': 'maker'
-    'dogs' : 'dogs'
-    'hamster : 'hamster'
+    'BTC': 'bitcoin',
+    'ETH': 'ethereum',
+    'BNB': 'binancecoin',
+    'TON': 'toncoin',
+    'MKR': 'maker',
+    'ADA': 'cardano',
+    'DOGE': 'dogecoin',
+    'SOL': 'solana',
+    'DOT': 'polkadot',
+    'LTC': 'litecoin',
+    'XRP': 'ripple'
 }
 
 # Fetch historical data from CoinGecko API for the selected coin
@@ -49,16 +53,23 @@ def split_message(message, max_length=4000):
 
 # Start command handler
 def start(update, context):
-    coin_list = ', '.join(SUPPORTED_COINS.keys()).title()
-    update.message.reply_text(f'Welcome! Available coins are: {coin_list}. Enter your query in the format: <coin> <days>.\nFor example: bitcoin 5')
+    update.message.reply_text(f'Welcome! Use /help to see the list of supported coins. Enter your query in the format: <coin> <days>. Example: BTC 5')
+
+# Help command handler to list supported coins
+def help_command(update, context):
+    coins_list = ', '.join(SUPPORTED_COINS.keys())
+    update.message.reply_text(f'Supported coins: {coins_list}\nUse the format <coin> <days> for predictions. Example: BTC 5')
 
 # Generate and send plot image
 def send_prediction_image(dates, predictions, update, context, coin):
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(10, 6))
     plt.plot(dates, predictions, marker='o', linestyle='-', color='b')
+    plt.fill_between(dates, predictions, color='skyblue', alpha=0.3)
     plt.xlabel('Date')
-    plt.ylabel(f'Predicted Price (USD)')
-    plt.title(f'{coin.title()} Price Predictions')
+    plt.ylabel(f'Price (USD)')
+    plt.title(f'{coin} Price Predictions')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
     plt.grid(True)
 
     buf = io.BytesIO()
@@ -70,17 +81,16 @@ def send_prediction_image(dates, predictions, update, context, coin):
 
 # Handle user input and prediction
 def handle_query(update, context):
-    # Split user input into coin and days
     user_input = update.message.text.split()
     if len(user_input) != 2:
-        update.message.reply_text('Please enter your query in the format: <coin> <days>. Example: bitcoin 5')
+        update.message.reply_text('Please enter your query in the format: <coin> <days>. Example: BTC 5')
         return
 
-    coin, days = user_input[0].lower(), user_input[1]
+    coin, days = user_input[0].upper(), user_input[1]
 
     # Check if the coin is supported
     if coin not in SUPPORTED_COINS:
-        update.message.reply_text(f'Sorry, I don\'t support "{coin}". Available coins: {", ".join(SUPPORTED_COINS.keys()).title()}')
+        update.message.reply_text(f'Sorry, I don\'t support "{coin}". Use /help to see the list of supported coins.')
         return
 
     # Validate days input
@@ -90,7 +100,7 @@ def handle_query(update, context):
         update.message.reply_text('Please enter a valid number of days.')
         return
 
-    update.message.reply_text(f'Predicting {coin.title()} prices for the next {next_days} days...')
+    update.message.reply_text(f'Predicting {coin} prices for the next {next_days} days...')
 
     # Fetch and process data for the selected coin
     coin_id = SUPPORTED_COINS[coin]
@@ -112,7 +122,7 @@ def handle_query(update, context):
 
     # Predict future prices
     last_data = scaled_prices[-window_size:].reshape(1, -1)
-    predictions_message = f'{coin.title()} predicted prices for the next {next_days} days:\n'
+    predictions_message = f'{coin} predicted prices for the next {next_days} days:\n'
     current_date = df.index[-1]
     predicted_dates = []
     predicted_prices = []
@@ -145,6 +155,7 @@ def main():
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(CommandHandler('help', help_command))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_query))
     dp.add_handler(MessageHandler(Filters.command, unknown))
 
