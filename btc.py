@@ -8,9 +8,9 @@ from datetime import datetime
 
 # Configurations
 ADMIN_IDS = [int(admin_id) for admin_id in os.getenv("ADMIN_IDS", "1318663278,1318663278").split(',')]  # Admin IDs from environment variables
-CHAT_ID = os.getenv("-1001824360922")  # Chat ID where the bot sends notifications
-TELEGRAM_BOT_TOKEN = os.getenv("7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY")  # Telegram bot token from environment variables
-BTC_THRESHOLD = float(os.getenv("BTC_THRESHOLD", -2))  # Default percentage threshold for BTC drop
+CHAT_ID = os.getenv("CHAT_ID", "-1001824360922")  # Chat ID where the bot sends notifications
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY")  # Telegram bot token from environment variables
+BTC_THRESHOLD = float(os.getenv("BTC_THRESHOLD", "-2"))  # Default percentage threshold for BTC drop
 TIMEZONE_IST = pytz.timezone('Asia/Kolkata')  # Indian Standard Time (IST)
 
 # Set up logging
