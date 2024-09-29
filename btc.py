@@ -82,7 +82,7 @@ def main():
 
     # Scheduler to check for price drops
     scheduler = BackgroundScheduler(timezone=TIMEZONE_IST)
-    scheduler.add_job(notify_if_price_drops, 'interval', minutes=15, args=[context])
+    scheduler.add_job(notify_if_price_drops, 'interval', minutes=15)  # Removed args=[context]
     scheduler.start()
 
     # Start the bot
