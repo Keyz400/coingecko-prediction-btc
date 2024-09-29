@@ -1,9 +1,8 @@
 import os
-import requests
 import logging
-import pytz
+import requests
 import sqlite3
-from datetime import datetime
+import pytz
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -11,186 +10,142 @@ from apscheduler.schedulers.background import BackgroundScheduler
 # Configurations
 ADMIN_IDS = [int(admin_id) for admin_id in os.getenv("ADMIN_IDS", "1318663278").split(',')]  # Admin IDs from environment variables
 CHAT_ID = os.getenv("CHAT_ID", "-1001824360922")  # Chat ID where the bot sends notifications
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY")  # Telegram bot token from environment variables
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")  # Telegram bot token
 BTC_THRESHOLD = float(os.getenv("BTC_THRESHOLD", -0.2))  # Default percentage threshold for BTC drop
 TIMEZONE_IST = pytz.timezone('Asia/Kolkata')  # Indian Standard Time (IST)
+DB_NAME = "user_settings.db"
+
+# Logging Configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Database setup
-conn = sqlite3.connect('user_settings.db', check_same_thread=False)
-cursor = conn.cursor()
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS users (
-    user_id INTEGER PRIMARY KEY,
-    threshold REAL DEFAULT -0.2,
-    subscribed INTEGER DEFAULT 0,
-    coin TEXT DEFAULT 'bitcoin'
-)
-''')
-conn.commit()
+def create_db():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER PRIMARY KEY,
+            threshold REAL DEFAULT -0.2,
+            subscribed INTEGER DEFAULT 0,
+            coin TEXT DEFAULT 'bitcoin'
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
-# Setup logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+# Function to fetch the current price of BTC
+def fetch_btc_price():
+    response = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd")
+    data = response.json()
+    return data['bitcoin']['usd']
 
-# Fetch current price
-def get_current_price(coin='bitcoin'):
-    try:
-        response = requests.get(f'https://api.coingecko.com/api/v3/simple/price?ids={coin}&vs_currencies=usd')
-        data = response.json()
-        return data[coin]['usd']
-    except Exception as e:
-        logging.error(f"Error fetching current price: {e}")
-        return None
-
-# Fetch 30-day price prediction
-def get_price_prediction(coin='bitcoin'):
-    try:
-        response = requests.get(f'https://api.coingecko.com/api/v3/coins/{coin}/forecast')
-        data = response.json()
-        return data['market_data']['price_change_percentage_30d']  # This can be adjusted as per actual API response
-    except Exception as e:
-        logging.error(f"Error fetching price prediction: {e}")
-        return None
-
-# Notify if the price drops or rises above the threshold
+# Notify about price change
 def notify_price_change(context: CallbackContext):
-    coin = 'bitcoin'  # You can change this to another coin as needed
-    current_price = get_current_price(coin)
-    if current_price is None:
-        return  # Exit if unable to fetch price
+    current_price = fetch_btc_price()
+    logger.info(f"Current BTC price: {current_price}")
 
-    for user in get_subscribed_users():
-        threshold = user[1]  # User-specific threshold
-        last_price = context.job.last_run_time  # Previous price stored in job context
+    # Here you would add logic to compare with previous price and send notifications if needed.
+    # You can implement your alert logic based on your thresholds here.
 
-        if last_price is None:
-            context.job.last_run_time = current_price  # Initialize the first run
-            return
+# Command to set the alert threshold
+def set_threshold(update: Update, context: CallbackContext):
+    if update.effective_user.id in ADMIN_IDS:
+        if context.args:
+            try:
+                new_threshold = float(context.args[0])
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("UPDATE user_settings SET threshold = ? WHERE user_id = ?", (new_threshold, update.effective_user.id))
+                conn.commit()
+                conn.close()
+                update.message.reply_text(f"Threshold set to {new_threshold}%")
+            except ValueError:
+                update.message.reply_text("Please provide a valid number.")
+        else:
+            update.message.reply_text("Please specify the new threshold.")
+    else:
+        update.message.reply_text("You are not authorized to use this command.")
 
-        price_change_percentage = ((current_price - last_price) / last_price) * 100
-        if abs(price_change_percentage) >= abs(threshold):
-            direction = "up" if price_change_percentage > 0 else "down"
-            context.bot.send_message(chat_id=user[0], text=f"{coin.capitalize()} price has changed by {abs(price_change_percentage):.2f}% ({direction}) to ${current_price}.")
-
-        context.job.last_run_time = current_price  # Update the last price for the next check
-
-# Get users who are subscribed for price alerts
-def get_subscribed_users():
-    cursor.execute('SELECT user_id, threshold FROM users WHERE subscribed = 1')
-    return cursor.fetchall()
+# Command to set the coin
+def set_coin(update: Update, context: CallbackContext):
+    if update.effective_user.id in ADMIN_IDS:
+        if context.args:
+            new_coin = context.args[0].lower()
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE user_settings SET coin = ? WHERE user_id = ?", (new_coin, update.effective_user.id))
+            conn.commit()
+            conn.close()
+            update.message.reply_text(f"Coin set to {new_coin}.")
+        else:
+            update.message.reply_text("Please specify the new coin.")
+    else:
+        update.message.reply_text("You are not authorized to use this command.")
 
 # Command to get current price
 def current_price(update: Update, context: CallbackContext):
-    coin = 'bitcoin'  # Default coin
-    price = get_current_price(coin)
-    if price:
-        update.message.reply_text(f"Current {coin.capitalize()} price: ${price}")
-    else:
-        update.message.reply_text("Error fetching current price.")
+    price = fetch_btc_price()
+    update.message.reply_text(f"Current BTC price: ${price}")
 
-# Command to get 30-day price prediction
+# Command to get price prediction
 def price_prediction(update: Update, context: CallbackContext):
-    coin = 'bitcoin'  # Default coin
-    prediction = get_price_prediction(coin)
-    if prediction is not None:
-        update.message.reply_text(f"The 30-day price prediction change for {coin.capitalize()} is: {prediction}%")
-    else:
-        update.message.reply_text("Error fetching price prediction.")
+    # Placeholder for the prediction logic
+    update.message.reply_text("Price prediction for the next 30 days is not implemented yet.")
 
-# Command to set the price change threshold
-def set_threshold(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    if update.effective_user.id in ADMIN_IDS:
-        try:
-            new_threshold = float(context.args[0])
-            cursor.execute('INSERT OR REPLACE INTO users (user_id, threshold) VALUES (?, ?)', (user_id, new_threshold))
-            conn.commit()
-            update.message.reply_text(f"Price change threshold set to {new_threshold}%")
-        except (IndexError, ValueError):
-            update.message.reply_text("Usage: /setthreshold <percentage>")
-    else:
-        update.message.reply_text("You do not have permission to use this command.")
-
-# Command to subscribe to price alerts
+# Command to subscribe to alerts
 def subscribe(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    cursor.execute('INSERT OR REPLACE INTO users (user_id, subscribed) VALUES (?, ?)', (user_id, 1))
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO user_settings (user_id, subscribed) VALUES (?, 1)", (update.effective_user.id,))
     conn.commit()
+    conn.close()
     update.message.reply_text("You have subscribed to price alerts.")
 
-# Command to unsubscribe from price alerts
+# Command to unsubscribe from alerts
 def unsubscribe(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    cursor.execute('INSERT OR REPLACE INTO users (user_id, subscribed) VALUES (?, ?)', (user_id, 0))
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE user_settings SET subscribed = 0 WHERE user_id = ?", (update.effective_user.id,))
     conn.commit()
+    conn.close()
     update.message.reply_text("You have unsubscribed from price alerts.")
 
-# Command to change the coin for price alerts
-def set_coin(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    if update.effective_user.id in ADMIN_IDS:
-        try:
-            new_coin = context.args[0].lower()  # Change this to any coin available in the API
-            cursor.execute('INSERT OR REPLACE INTO users (user_id, coin) VALUES (?, ?)', (user_id, new_coin))
-            conn.commit()
-            update.message.reply_text(f"Coin for price alerts set to {new_coin}.")
-        except IndexError:
-            update.message.reply_text("Usage: /setcoin <coin_name>")
-    else:
-        update.message.reply_text("You do not have permission to use this command.")
-
-# Command to check current threshold
-def current_threshold(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    cursor.execute('SELECT threshold FROM users WHERE user_id = ?', (user_id,))
-    result = cursor.fetchone()
-    if result:
-        update.message.reply_text(f"Your current price change threshold is set to {result[0]}%")
-    else:
-        update.message.reply_text("You do not have a threshold set.")
-
-# Command to get help
+# Command to show help
 def help_command(update: Update, context: CallbackContext):
     update.message.reply_text(
-        "Commands:\n"
-        "/cp - Get current price\n"
-        "/prediction - Get 30-day price prediction\n"
-        "/setthreshold <percentage> - Set your price change threshold (Admin only)\n"
+        "/setthreshold <percentage> - Set the price change threshold\n"
+        "/setcoin <coin_name> - Set the monitored coin\n"
+        "/cp - Get current BTC price\n"
+        "/prediction - Get price prediction for the next 30 days\n"
         "/subscribe - Subscribe to price alerts\n"
         "/unsubscribe - Unsubscribe from price alerts\n"
-        "/setcoin <coin_name> - Change the coin for alerts (Admin only)\n"
-        "/currentthreshold - Check your current threshold\n"
         "/help - Show this help message"
     )
 
-# Unknown command handler
-def unknown_command(update: Update, context: CallbackContext):
-    update.message.reply_text("Sorry, I didn't understand that command.")
-
 # Main function to start the bot
 def main():
-    updater = Updater(token=TELEGRAM_BOT_TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+    create_db()  # Create the database
+    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
 
-    # Add command handlers
-    dispatcher.add_handler(CommandHandler("cp", current_price))
-    dispatcher.add_handler(CommandHandler("prediction", price_prediction))
-    dispatcher.add_handler(CommandHandler("setthreshold", set_threshold))
-    dispatcher.add_handler(CommandHandler("subscribe", subscribe))
-    dispatcher.add_handler(CommandHandler("unsubscribe", unsubscribe))
-    dispatcher.add_handler(CommandHandler("setcoin", set_coin))
-    dispatcher.add_handler(CommandHandler("currentthreshold", current_threshold))
-    dispatcher.add_handler(CommandHandler("help", help_command))
-    dispatcher.add_handler(CommandHandler("unknown", unknown_command))
+    # Register command handlers
+    dp.add_handler(CommandHandler("setthreshold", set_threshold))
+    dp.add_handler(CommandHandler("setcoin", set_coin))
+    dp.add_handler(CommandHandler("cp", current_price))
+    dp.add_handler(CommandHandler("prediction", price_prediction))
+    dp.add_handler(CommandHandler("subscribe", subscribe))
+    dp.add_handler(CommandHandler("unsubscribe", unsubscribe))
+    dp.add_handler(CommandHandler("help", help_command))
 
-    # Scheduler to check for price changes
-    scheduler = BackgroundScheduler(timezone=TIMEZONE_IST)
-    scheduler.add_job(notify_price_change, 'interval', minutes=15, id='price_change_check')
+    # Scheduler for price checking
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(notify_price_change, 'interval', minutes=15, id='price_change_check', kwargs={'context': updater.context})
     scheduler.start()
 
-    # Start the bot
     updater.start_polling()
-    logging.info("Bot started.")
+    logger.info("Bot started. Polling...")
     updater.idle()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
