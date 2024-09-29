@@ -8,7 +8,7 @@ from telegram.ext import Updater, CommandHandler, CallbackContext
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Configurations
-ADMIN_IDS = [int(admin_id) for admin_id in os.getenv("ADMIN_IDS", "1318663278").split(',')]  # Admin IDs from environment variables
+ADMIN_IDS = [int(admin_id) for admin_id in os.getenv("ADMIN_IDS", "1318663278,1318663278").split(',')]  # Admin IDs from environment variables
 CHAT_ID = os.getenv("CHAT_ID", "-1001824360922")  # Chat ID where the bot sends notifications
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7066257336:AAHiASvtYMLHHTldyiFMVfOeAfBLRSudDhY")  # Telegram bot token from environment variables
 BTC_THRESHOLD = float(os.getenv("BTC_THRESHOLD", -2))  # Default percentage threshold for BTC drop
@@ -82,7 +82,7 @@ def main():
 
     # Scheduler to check for price drops
     scheduler = BackgroundScheduler(timezone=TIMEZONE_IST)
-    scheduler.add_job(notify_if_price_drops, 'interval', minutes=15, id='price_drop_check', kwargs={'context': updater.context})  # Pass context to the job
+    scheduler.add_job(notify_if_price_drops, 'interval', minutes=15, id='price_drop_check', args=[updater])  # Pass updater to the job
     scheduler.start()
 
     # Start the bot
